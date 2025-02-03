@@ -11,12 +11,13 @@
 (function() {
     'use strict';
     //#region data
-    const equipOrigin = []
-
-    const equip_pair = new Map()
-    const lock_map = new Map()
-
     const active_path = ['战斗装备/装备3','战斗装备/装备2']
+    
+    let equip_define = []  
+    let equip_pair = []
+    let lock_map = new Map()
+
+    let active_equip_pair = ['0','0','0','0','0']
 
     const data_load = () => {
         localStorage.getItem('equip_pair') ? equip_pair = JSON.parse(localStorage.getItem('equip_pair')) : false
@@ -42,13 +43,15 @@
 
         // 监听 WebSocket 消息
         ws.addEventListener('message', function(event) {
-            let d = JSON.parse(JSON.parse(event.data).Content);
-            if (d.Path && active_path.includes(d.Path.join('/'))){
-                console.log(d)
-                step_msg(d.Path.join('/'),d.Content)
-            }
-            // console.log(JSON.parse(event.data));
-            // console.log('WebSocket message received:', event.data);
+            queueMicrotask(() => {
+                let d = JSON.parse(JSON.parse(event.data).Content);
+                if (d.Path && active_path.includes(d.Path.join('/'))){
+                    console.log(d)
+                    step_msg(d.Path.join('/'),d.Content)
+                }
+                // console.log(JSON.parse(event.data));
+                // console.log('WebSocket message received:', event.data);
+            })
 
         });
 
@@ -81,20 +84,20 @@
     <div id="float-tab-menu" style="position: fixed; top: 100px; left: 20px; z-index: 9999; cursor: move; min-width: 250px; color: #e0e0e0;">
         <!-- 标题栏 -->
         <div id="menu-header" style="background: #1a1a1a; padding: 12px; border-radius: 8px 8px 0 0;">
-            🚀 装备小助手
+            装备小助手
         </div>
 
         <!-- 标签导航 -->
         <div id="menu-tabs" style="background: #2d2d2d; padding: 8px 12px 0; border-bottom: 1px solid #404040;">
             <button class="tab-btn active" data-tab="tab1">配装设置</button>
-            <button class="tab-btn" data-tab="tab2">开发者</button>
+            <button class="tab-btn" data-tab="tab2">其他</button>
         </div>
 
         <!-- 内容区域 -->
         <div id="menu-body" style="background: #262626; border: 1px solid #404040; border-top: none; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
             <!-- 标签1 -->
             <div id="tab1" class="tab-content active">
-                <div class="tmenu-body" style="overflow-y: auto; max-height: 30vh;">
+                <div id="equip-pair-list" class="tmenu-body" style="overflow-y: auto; max-height: 30vh;">
                 存储配装
                     <button class="menu-item">🔍 元素检查</button>
                     <button class="menu-item">🌓 暗黑切换</button>
@@ -112,6 +115,7 @@
 
             <!-- 标签2 -->
             <div id="tab2" class="tab-content">
+                <button id="equip-sort" class="menu-item">排序</button>
                 <button class="menu-item">⚙️ 控制台</button>
                 <button class="menu-item">📊 性能监控</button>
                 <button class="menu-item">🔧 调试工具</button>
@@ -313,24 +317,23 @@
     });
 
     document.getElementById('new-equip').addEventListener('click', () => {
-        
+        new_equip()
     })
 
     document.getElementById('save-equip').addEventListener('click', () => {
-        
+        modify_equip()
     })
 
     //render
 
-    const equip_render = () => {
+    const menu_equip_render = () => {
 
 
     }
 
-    const origin_equip_fit = () => {
+    const addon_equip = () => {
 
     }
-
 
 
     //#endregion
@@ -341,27 +344,56 @@
         console.log(ej)
     }
 
-
-    const paser_equip = (content) => {
+    const equip_click = (id) => {
 
     }
 
-
     const selectequip = (id) => {
         let e = document.querySelector(`.p-1.itemView[title="${id}"]:not(.border)`)
-        
         console.log(e)
-        if (e && e.style.opacity == 1) {
+        if (e && e.style.opacity != '0.5') {
             e.click()
             console.log("select")
         }
         else{
             console.log("no select")
         }
-
     }
 
+    const flush_active_equip = () => {
+        const p = []
+        for(let i = 1;i <= 5 ; i++){
+            let slot = document.querySelector(`div.my-1:nth-child(${i}) div.border`)
+            if (slot){
+                p.push(slot.title)
+            }
+            else
+                p.push('0')
+        }
+        active_equip_pair = p
+        console.log(p)
+    }
 
+    const flush_lock_map = (pre,now) => {
+        if(pre){
+            pre.forEach(x => {
+
+            })
+        }
+    }
+
+    const new_equip = () => {
+        flush_active_equip()
+        let name = prompt('new name?')
+        if (name) {
+            equip_pair.set(name,active_equip_pair)
+        }
+        else{
+            alert('need name')
+        }
+    }
+
+    
 
     //#endregion
 })();
