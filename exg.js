@@ -8,46 +8,60 @@
 // @grant        none
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
     //#region data
-    const active_path = ['战斗装备/装备3','战斗装备/装备2']
-    
-    let equip_define = []  
-    let equip_pair = []
+    const active_path = ['战斗装备/装备锁定','战斗装备/装备3', '战斗装备/装备分解', '战斗装备/装备升级', '战斗装备/装备重铸', '战斗装备/装备附魔']
+    let equip_define = []
+
+
+    /**
+     * @type {Map<String,Array>}
+     */
+    let equip_pair = new Map()
+
+    /**
+     * @type {Map<String,Array>}
+     */
     let lock_map = new Map()
 
-    let active_equip_pair = ['0','0','0','0','0']
+    let active_equip_pair = ['0', '0', '0', '0', '0']
 
     const data_load = () => {
-        localStorage.getItem('equip_pair') ? equip_pair = JSON.parse(localStorage.getItem('equip_pair')) : false
-        localStorage.getItem('lock_map') ? lock_map = JSON.parse(localStorage.getItem('lock_map')) : false
+        localStorage.getItem('equip_pair') ? equip_pair = new Map(JSON.parse(localStorage.getItem('equip_pair'))) : false
+        localStorage.getItem('lock_map') ? lock_map = new Map(JSON.parse(localStorage.getItem('lock_map'))) : false
     }
 
     const data_save = () => {
-        localStorage.setItem('equip_pair', JSON.stringify(equip_pair))
-        localStorage.setItem('lock_map', JSON.stringify(lock_map))
+        const equip_pair_str = JSON.stringify(Array.from(equip_pair))
+        const lock_map_str = JSON.stringify(Array.from(lock_map))
+
+        localStorage.setItem('equip_pair', equip_pair_str)
+        localStorage.setItem('lock_map', lock_map_str)
     }
 
     data_load()
     //#endregion
-
 
     //#region hook
     // 保存原始的 WebSocket 构造函数
     const OriginalWebSocket = window.WebSocket;
 
     // 重写 WebSocket 构造函数
-    window.WebSocket = function(url, protocols) {
+    window.WebSocket = function (url, protocols) {
         const ws = new OriginalWebSocket(url, protocols);
 
         // 监听 WebSocket 消息
-        ws.addEventListener('message', function(event) {
+        ws.addEventListener('message', function (event) {
             queueMicrotask(() => {
                 let d = JSON.parse(JSON.parse(event.data).Content);
-                if (d.Path && active_path.includes(d.Path.join('/'))){
+                if (d.Path && active_path.includes(d.Path.join('/'))) {
                     console.log(d)
-                    step_msg(d.Path.join('/'),d.Content)
+                    step_msg(d.Path.join('/'), d.Content)
+                    menu.style.display = 'block'
+                }
+                else {
+                    menu.style.display = 'none'
                 }
                 // console.log(JSON.parse(event.data));
                 // console.log('WebSocket message received:', event.data);
@@ -56,23 +70,33 @@
         });
 
         // 监听 WebSocket 打开事件
-        ws.addEventListener('open', function(event) {
+        ws.addEventListener('open', function (event) {
             console.log('WebSocket connection opened:', url);
         });
 
         // 监听 WebSocket 关闭事件
-        ws.addEventListener('close', function(event) {
+        ws.addEventListener('close', function (event) {
             console.log('WebSocket connection closed:', event);
         });
 
         // 监听 WebSocket 错误事件
-        ws.addEventListener('error', function(event) {
+        ws.addEventListener('error', function (event) {
             console.log('WebSocket error:', event);
         });
         console.log("start hook ws")
 
         return ws;
     };
+
+    //hook eval
+    const Origineval = window.eval
+    let evalHook = (c) => { }
+
+    window.eval = function (code) {
+        Origineval(code)
+        if (evalHook)
+            evalHook(code)
+    }
     //#endregion
 
     //#region menu
@@ -81,7 +105,7 @@
     // 1. 深色模式菜单结构
     // ======================
     const menuHTML = `
-    <div id="float-tab-menu" style="position: fixed; top: 100px; left: 20px; z-index: 9999; cursor: move; min-width: 250px; color: #e0e0e0;">
+    <div id="float-tab-menu" style="position: fixed; top: 100px; left: 20px; z-index: 9999; cursor: move; min-width: 250px; color: #e0e0e0; display : none">
         <!-- 标题栏 -->
         <div id="menu-header" style="background: #1a1a1a; padding: 12px; border-radius: 8px 8px 0 0;">
             装备小助手
@@ -89,7 +113,7 @@
 
         <!-- 标签导航 -->
         <div id="menu-tabs" style="background: #2d2d2d; padding: 8px 12px 0; border-bottom: 1px solid #404040;">
-            <button class="tab-btn active" data-tab="tab1">配装设置</button>
+            <button class="tab-btn active" data-tab="tab1">人类配装设置</button>
             <button class="tab-btn" data-tab="tab2">其他</button>
         </div>
 
@@ -99,26 +123,15 @@
             <div id="tab1" class="tab-content active">
                 <div id="equip-pair-list" class="tmenu-body" style="overflow-y: auto; max-height: 30vh;">
                 存储配装
-                    <button class="menu-item">🔍 元素检查</button>
-                    <button class="menu-item">🌓 暗黑切换</button>
-                    <button class="menu-item">📷 页面截图</button>
-                    <button class="menu-item">📷 页面截图</button>
-                    <button class="menu-item">📷 页面截图</button>
-                    <button class="menu-item">📷 页面截图</button>
-                    <button class="menu-item">📷 页面截图</button>
-                    <button class="menu-item">📷 页面截图</button>
-                    <button class="menu-item">📷 页面截图</button>
+                    
                 </div>
-                <button id="new-equip" class="menu-item" style="background: #4a9cff; display:inline-block; width:45%; margin-right:5%">新建配装</button> 
-                <button id="save-equip" class="menu-item" style="display:inline-block; width:45%;">保存配装</button>
+                <button id="save-equip" class="menu-item" style="background: #4a9cff;">保存配装</button> 
+                
             </div>
 
             <!-- 标签2 -->
             <div id="tab2" class="tab-content">
-                <button id="equip-sort" class="menu-item">排序</button>
-                <button class="menu-item">⚙️ 控制台</button>
-                <button class="menu-item">📊 性能监控</button>
-                <button class="menu-item">🔧 调试工具</button>
+                <button id="equip-sort" class="menu-item">优化排序</button>
             </div> 
         </div>
     </div>
@@ -208,22 +221,23 @@
             border-radius: 4px;
         }
 
-        .tequip-fit{
+        .tequip-used{
+            color:rgb(69, 224, 64);
+            display: inline-block;
+            font-size: 14px;
+        }
 
+        .tequip-inpair{
+            color:rgb(40, 38, 38);
+            display: inline-block;
+            font-size: 14px;
         }
     `;
     document.head.appendChild(style);
-    
 
-    // ======================
-    // 3. 功能逻辑（保持原有拖动和交互逻辑）
-    // ======================
-    // 此处添加与之前相同的拖动、标签切换、关闭等功能代码
-    // （具体实现参考前文提供的完整代码）
 
-    // ======================
     // 2. 添加拖动功能
-    // ======================
+
     const menu = document.getElementById('float-tab-menu');
     const header = document.getElementById('menu-header');
     let isDragging = false;
@@ -232,21 +246,21 @@
     header.addEventListener('mousedown', startDrag);
 
     function startDrag(e) {
-        if(e.target.id === 'close-menu') return;
+        if (e.target.id === 'close-menu') return;
         isDragging = true;
-        
+
         // 计算初始偏移量
         const rect = menu.getBoundingClientRect();
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
-        
+
         document.addEventListener('mousemove', drag);
         document.addEventListener('mouseup', stopDrag);
     }
 
     function drag(e) {
-        if(!isDragging) return;
-        
+        if (!isDragging) return;
+
         // 计算新位置
         let newX = e.clientX - offsetX;
         let newY = e.clientY - offsetY;
@@ -273,14 +287,14 @@
     // ======================
     window.addEventListener('resize', () => {
         const rect = menu.getBoundingClientRect();
-        
+
         const newX = Math.min(
-            Math.max(0, rect.left), 
+            Math.max(0, rect.left),
             window.innerWidth - menu.offsetWidth
         );
-        
+
         const newY = Math.min(
-            Math.max(0, rect.top), 
+            Math.max(0, rect.top),
             window.innerHeight - menu.offsetHeight
         );
 
@@ -289,11 +303,9 @@
     });
 
 
-    // ======================
-    // 3. 标签切换功能
-    // ======================
+    //button bind 
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             // 切换激活状态
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
             this.classList.add('active');
@@ -305,95 +317,174 @@
         });
     });
 
-    // ======================
-    // 4. 功能按钮事件
-    // ======================
-    document.querySelectorAll('.menu-item').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const action = this.textContent;
-            alert(`执行操作: ${action}`);
-            // 根据按钮内容添加具体功能
-        });
-    });
 
-    document.getElementById('new-equip').addEventListener('click', () => {
-        new_equip()
+    let bu_save_equip = document.getElementById('save-equip')
+    bu_save_equip.addEventListener('click', () => {
+        save_equip()
     })
 
-    document.getElementById('save-equip').addEventListener('click', () => {
-        modify_equip()
+    let bu_equip_sort = document.getElementById('equip-sort')
+    let flag_sort = false
+    bu_equip_sort.addEventListener('click', () => {
+        flag_sort = !flag_sort
+        bu_equip_sort.textContent = flag_sort ? '优化排序   ✅' : '优化排序   ❎'
     })
 
-    //render
+    //#endregion
+
+
+    //#region render
+
+    let first_render = true
+    let rendered_equip = new Set()
+
+    const new_equipbu = (n) => {
+        let bu = document.createElement('button')
+        bu.classList.add('menu-item')
+        bu.textContent = n
+        bu.addEventListener('click', () => {
+            apply_equip_pair(n)
+        })
+        return bu
+    }
 
     const menu_equip_render = () => {
+        let c = document.getElementById('equip-pair-list')
 
+        if (first_render) {
+            first_render = false
+            for (let [n, p] of equip_pair) {
+                let bu = new_equipbu(n)
+                c.appendChild(bu)
+                rendered_equip.add(n)
+            }
+        }
+        else {
+            for (let [n, p] of equip_pair) {
+                if (!rendered_equip.has(n)) {
+                    let bu = new_equipbu(n)
+                    c.appendChild(bu)
+                    rendered_equip.add(n)
+                }
+            }
+        }
+    }
+
+    const addon_equip_render = () => {
+        console.log('start addon')
+        let itemc = Array.from(document.querySelectorAll('.p-1.itemView:not(.border)'))
+        for (let i of itemc) {
+            let n = i.firstElementChild
+            let id = i.title
+            if (active_equip_pair.includes(id)) {
+                n.insertAdjacentHTML('afterend', '<div class="tequip-used">[装备中]</div>')
+            }
+            if (lock_map.has(id)) {
+                let s = lock_map.get(id).join(',')
+                n.insertAdjacentHTML('afterend', `<div class="tequip-inpair">[在配装 ${s} 中]</div>`)
+            }
+        }
 
     }
 
-    const addon_equip = () => {
-
-    }
-
+    menu_equip_render()
 
     //#endregion
 
     //#region action
-    const step_msg = (path,content) => {
-        let ej = JSON.parse(content.Items[0].Cmd[1])
-        console.log(ej)
+    const step_msg = (path, content) => {
+        // let ej = JSON.parse(content.Items[0].Cmd[1])
+        // console.log(ej)
+        evalHook = (c) => {
+            console.log('evalHook run')
+            queueMicrotask(() => {
+                flush_active_equip(path)
+                addon_equip_render()
+            })
+            evalHook = () => { }
+        }
     }
 
-    const equip_click = (id) => {
-
+    const apply_equip_pair = (id) => {
+        let p = equip_pair.get(id)
+        for (let ind of p) {
+            select_equip(ind)
+        }
+        console.log(p)
     }
 
-    const selectequip = (id) => {
+    const select_equip = (id) => {
         let e = document.querySelector(`.p-1.itemView[title="${id}"]:not(.border)`)
         console.log(e)
         if (e && e.style.opacity != '0.5') {
             e.click()
             console.log("select")
         }
-        else{
+        else {
             console.log("no select")
         }
     }
 
-    const flush_active_equip = () => {
+    let equip_flush_path = ['战斗装备/装备3']
+    const flush_active_equip = (path) => {
+        if(!equip_flush_path.includes(path))
+            return
+
         const p = []
-        for(let i = 1;i <= 5 ; i++){
+        for (let i = 1; i <= 5; i++) {
             let slot = document.querySelector(`div.my-1:nth-child(${i}) div.border`)
-            if (slot){
+            if (slot) {
                 p.push(slot.title)
             }
             else
                 p.push('0')
         }
         active_equip_pair = p
-        console.log(p)
+        console.log(`get pair ${p}`)
     }
 
-    const flush_lock_map = (pre,now) => {
-        if(pre){
-            pre.forEach(x => {
-
-            })
+    const flush_lock_map = (pre, now) => {
+        if (pre) {
+            for (let id of pre.item) {
+                let c = lock_map.get(id)
+                //remove name
+                c.splice(c.indexOf(pre.id), 1)
+            }
         }
+        if (now) {
+            for (let id of now.item) {
+                if (!lock_map.has(id)) {
+                    lock_map.set(id, [])
+                }
+                let c = lock_map.get(id) 
+                c.push(now.id)
+            }
+        }
+        console.log('flush lock map')
     }
 
-    const new_equip = () => {
+    const save_equip = () => {
         flush_active_equip()
-        let name = prompt('new name?')
-        if (name) {
-            equip_pair.set(name,active_equip_pair)
+        let name = prompt('name?')
+        if (name && !equip_pair.has(name)) {
+            flush_lock_map(null, { id: name, item: active_equip_pair })
+            equip_pair.set(name, active_equip_pair)
         }
-        else{
+        else if (name && equip_pair.has(name)) {
+            console.log('name exist,modify')
+            flush_lock_map({ id: name, item: equip_pair.get(name) }, { id: name, item: active_equip_pair })
+            equip_pair.set(name, active_equip_pair)
+        }
+        else {
             alert('need name')
         }
+
+        queueMicrotask(() => {
+            menu_equip_render()
+            data_save()
+        })
     }
 
-    
 
     //#endregion
 })();
