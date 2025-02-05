@@ -12,8 +12,8 @@
     'use strict';
     //#region data
     const active_path = ['战斗装备/装备锁定','战斗装备/装备3', '战斗装备/装备分解', '战斗装备/装备升级', '战斗装备/装备重铸', '战斗装备/装备附魔']
+    
     let equip_define = []
-
 
     /**
      * @type {Map<String,Array>}
@@ -131,7 +131,7 @@
 
             <!-- 标签2 -->
             <div id="tab2" class="tab-content">
-                <button id="equip-sort" class="menu-item">优化排序</button>
+                <button id="equip-sort" class="menu-item">优化排序   ❎</button>
             </div> 
         </div>
     </div>
@@ -387,6 +387,39 @@
 
     }
 
+    const sort_equip = () => {
+        let itemc = Array.from(document.querySelectorAll('.p-1.itemView:not(.border)'))
+        let p = itemc[0].parentNode
+
+        for (let i of itemc) 
+            p.removeChild(i)
+
+        let imap = itemc.map(n => {
+            return {
+                grade: ['红色','金色','紫色','蓝色'].indexOf(n.dataset['grade']),
+                group: n.querySelector('.fs-5').textContent.slice(0,-2),
+                slot: ['头盔','背心','枪套','背包','护膝'].indexOf(n.dataset['slot']),
+                id : n.title,
+                node : n
+            }
+        })
+
+        imap.sort((a, b) => {
+            if (a.grade != b.grade)
+                return a.grade - b.grade
+            if (a.group != b.group)
+                return a.group < b.group ? -1 : 1
+            if (a.slot != b.slot)
+                return a.slot - b.slot
+            return a.id < b.id ? -1 : 1
+        })
+
+        for (let i of imap) {
+            p.appendChild(i.node)
+        }
+
+    }
+
     menu_equip_render()
 
     //#endregion
@@ -400,6 +433,8 @@
             queueMicrotask(() => {
                 flush_active_equip(path)
                 addon_equip_render()
+                if (flag_sort) 
+                    sort_equip()
             })
             evalHook = () => { }
         }
@@ -410,7 +445,7 @@
         for (let ind of p) {
             select_equip(ind)
         }
-        console.log(p)
+        console.log(`apply ${id}`)
     }
 
     const select_equip = (id) => {
@@ -426,8 +461,9 @@
     }
 
     let equip_flush_path = ['战斗装备/装备3']
+
     const flush_active_equip = (path) => {
-        if(!equip_flush_path.includes(path))
+        if(path && !equip_flush_path.includes(path))
             return
 
         const p = []
@@ -467,6 +503,7 @@
         flush_active_equip()
         let name = prompt('name?')
         if (name && !equip_pair.has(name)) {
+            console.log('add new pair')
             flush_lock_map(null, { id: name, item: active_equip_pair })
             equip_pair.set(name, active_equip_pair)
         }
@@ -478,10 +515,10 @@
         else {
             alert('need name')
         }
-
+        
         queueMicrotask(() => {
-            menu_equip_render()
             data_save()
+            menu_equip_render()
         })
     }
 
