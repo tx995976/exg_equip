@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         深色模式可拖动菜单
+// @name         exg 装备助手
 // @namespace    http://tampermonkey.net/
-// @version      3.1
-// @description  深色主题的可拖动多标签菜单
-// @author       YourName
-// @match        *://*/*
+// @version      0.2.0
+// @description  exg 装备助手
+// @author       tx995976
+// @match        *://list.darkrp.cn*
 // @grant        none
 // ==/UserScript==
 
@@ -131,7 +131,7 @@
 
             <!-- 标签2 -->
             <div id="tab2" class="tab-content">
-                <button id="equip-sort" class="menu-item">优化排序   ❎</button>
+                <button id="equip-sort" class="menu-item">优化列表   ❎</button>
             </div> 
         </div>
     </div>
@@ -327,7 +327,7 @@
     let flag_sort = false
     bu_equip_sort.addEventListener('click', () => {
         flag_sort = !flag_sort
-        bu_equip_sort.textContent = flag_sort ? '优化排序   ✅' : '优化排序   ❎'
+        bu_equip_sort.textContent = flag_sort ? '优化列表   ✅' : '优化列表   ❎'
     })
 
     //#endregion
