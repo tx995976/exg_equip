@@ -13,8 +13,6 @@
     //#region data
     const active_path = ['战斗装备/装备锁定','战斗装备/装备3', '战斗装备/装备分解', '战斗装备/装备升级', '战斗装备/装备重铸', '战斗装备/装备附魔']
     
-    let equip_define = []
-
     /**
      * @type {Map<String,Array>}
      */
@@ -26,6 +24,11 @@
     let lock_map = new Map()
 
     let active_equip_pair = ['0', '0', '0', '0', '0']
+    let active_equip_pair_zm = ['0', '0', '0', '0', '0']
+
+    let current_path = ''
+    let current_item_list = []
+
 
     const data_load = () => {
         localStorage.getItem('equip_pair') ? equip_pair = new Map(JSON.parse(localStorage.getItem('equip_pair'))) : false
@@ -58,7 +61,6 @@
                 if (d.Path && active_path.includes(d.Path.join('/'))) {
                     console.log(d)
                     step_msg(d.Path.join('/'), d.Content)
-                    menu.style.display = 'block'
                 }
                 else {
                     menu.style.display = 'none'
@@ -131,7 +133,8 @@
 
             <!-- 标签2 -->
             <div id="tab2" class="tab-content">
-                <button id="equip-sort" class="menu-item">优化列表   ❎</button>
+                <button id="equip-sort" class="menu-item">优化列表   ❌</button>
+                <button id="equip-auto-confirm" class="menu-item">自动装备   ❌</button>
             </div> 
         </div>
     </div>
@@ -232,9 +235,9 @@
             display: inline-block;
             font-size: 14px;
         }
+
     `;
     document.head.appendChild(style);
-
 
     // 2. 添加拖动功能
 
@@ -318,6 +321,7 @@
     });
 
 
+
     let bu_save_equip = document.getElementById('save-equip')
     bu_save_equip.addEventListener('click', () => {
         save_equip()
@@ -327,7 +331,14 @@
     let flag_sort = false
     bu_equip_sort.addEventListener('click', () => {
         flag_sort = !flag_sort
-        bu_equip_sort.textContent = flag_sort ? '优化列表   ✅' : '优化列表   ❎'
+        bu_equip_sort.textContent = flag_sort ? '优化列表   ✅' : '优化列表   ❌'
+    })
+
+    let bu_equip_auto_confirm = document.getElementById('equip-auto-confirm')
+    let flag_auto_confirm = false
+    bu_equip_auto_confirm.addEventListener('click', () => {
+        flag_auto_confirm = !flag_auto_confirm
+        bu_equip_auto_confirm.textContent = flag_auto_confirm ? '自动装备   ✅' : '自动装备   ❌'
     })
 
     //#endregion
@@ -388,23 +399,26 @@
     }
 
     const sort_equip = () => {
-        let itemc = Array.from(document.querySelectorAll('.p-1.itemView:not(.border)'))
-        let p = itemc[0].parentNode
+        const itemc = current_item_list
+        let p = itemc[0].node.parentNode
 
         for (let i of itemc) 
-            p.removeChild(i)
+            p.removeChild(i.node)
 
-        let imap = itemc.map(n => {
-            return {
-                grade: ['红色','金色','紫色','蓝色'].indexOf(n.dataset['grade']),
-                group: n.querySelector('.fs-5').textContent.slice(0,-2),
-                slot: ['头盔','背心','枪套','背包','护膝'].indexOf(n.dataset['slot']),
-                id : n.title,
-                node : n
-            }
-        })
+        // let imap = itemc.map(n => {
+        //     return {
+        //         grade: ['红色','金色','紫色','蓝色'].indexOf(n.dataset['grade']),
+        //         slot: ['头盔','背心','枪套','背包','护膝'].indexOf(n.dataset['slot']),
+        //         id : n.title,
+        //         group: n.querySelector('.fs-5').textContent
+        //         .replace(/^[^\u4e00-\u9fff]+/g, '') 
+        //         .replace(/[^\u4e00-\u9fff]+$/g, '')
+        //         .slice(0,-2),
+        //         node : n
+        //     }
+        // })
 
-        imap.sort((a, b) => {
+        itemc.sort((a, b) => {
             if (a.grade != b.grade)
                 return a.grade - b.grade
             if (a.group != b.group)
@@ -414,8 +428,18 @@
             return a.id < b.id ? -1 : 1
         })
 
-        for (let i of imap) {
+        for (let i of itemc) {
             p.appendChild(i.node)
+        }
+
+    }
+
+    const menu_option = () => {
+        switch (current_path){
+            case '战斗装备/装备3':
+                 menu.style.display = 'block'
+            default:
+                break
         }
 
     }
@@ -426,24 +450,34 @@
 
     //#region action
     const step_msg = (path, content) => {
+        current_path = path
         // let ej = JSON.parse(content.Items[0].Cmd[1])
         // console.log(ej)
         evalHook = (c) => {
             console.log('evalHook run')
             queueMicrotask(() => {
-                flush_active_equip(path)
+                menu_option()
+                flush_active_equip()
+                flush_item_list()
+
                 addon_equip_render()
                 if (flag_sort) 
                     sort_equip()
             })
-            evalHook = () => { }
+            evalHook = () => {}
         }
+
     }
 
     const apply_equip_pair = (id) => {
         let p = equip_pair.get(id)
         for (let ind of p) {
             select_equip(ind)
+        }
+        if (flag_auto_confirm) {
+            let cbu = document.querySelector('.bg-primary-subtle')
+            if (cbu.textContent = '修改装备')
+                cbu.click()
         }
         console.log(`apply ${id}`)
     }
@@ -460,12 +494,37 @@
         }
     }
 
-    let equip_flush_path = ['战斗装备/装备3']
+    const flush_item_list = () => {
+        let itemc = Array.from(document.querySelectorAll('.p-1.itemView:not(.border)'))
 
-    const flush_active_equip = (path) => {
-        if(path && !equip_flush_path.includes(path))
+        current_item_list = itemc.map(n => {
+            return {
+                grade: ['红色','金色','紫色','蓝色'].indexOf(n.dataset['grade']),
+                slot: ['头盔','背心','枪套','背包','护膝'].indexOf(n.dataset['slot']),
+                id : n.title,
+                group: n.querySelector('.fs-5').textContent
+                    .replace(/^[^\u4e00-\u9fff]+/g, '') 
+                    .replace(/[^\u4e00-\u9fff]+$/g, '')
+                    .slice(0,-2),
+                prop: Array.from(n.querySelectorAll('.itemPropertySpan:not(.bg-black)'))
+                    .map(x => {
+                        let [k, v] = x.textContent.split(' ')
+                        return {k, v}
+                    }),
+                magic: Array.from(n.querySelectorAll('.itemPropertySpan.bg-black'))
+                    .map(x => {
+                        let [k, v] = x.textContent.split(' ')
+                        return {k, v}
+                    }),
+                node : n
+            }
+        })
+    }
+
+    
+    const flush_active_equip = () => {
+        if(current_path && !['战斗装备/装备3','战斗装备/装备4'].includes(current_path))
             return
-
         const p = []
         for (let i = 1; i <= 5; i++) {
             let slot = document.querySelector(`div.my-1:nth-child(${i}) div.border`)
@@ -478,6 +537,7 @@
         active_equip_pair = p
         console.log(`get pair ${p}`)
     }
+
 
     const flush_lock_map = (pre, now) => {
         if (pre) {
