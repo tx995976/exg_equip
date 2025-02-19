@@ -11,8 +11,8 @@
 (function () {
     'use strict';
     //#region data
-    const active_path = ['战斗装备/装备锁定','战斗装备/装备3', '战斗装备/装备分解', '战斗装备/装备升级', '战斗装备/装备重铸', '战斗装备/装备附魔']
-    
+    const active_path = ['战斗装备/装备锁定', '战斗装备/装备3', '战斗装备/装备分解', '战斗装备/装备升级', '战斗装备/装备重铸', '战斗装备/装备附魔']
+
     /**
      * @type {Map<String,Array>}
      */
@@ -23,11 +23,29 @@
      */
     let lock_map = new Map()
 
+    let settingdata = {}
+    let setting_handler = {
+        get(tar, prop) {
+            if (tar[prop] === undefined)
+                tar[prop] = false
+            return tar[prop]
+        },
+        set(tar, prop, value) {
+            tar[prop] = value
+            setting_save()
+            console.log(`set config`, tar)
+            return true
+        }
+    }
+
+    let setting = {}
+
     let active_equip_pair = ['0', '0', '0', '0', '0']
     let active_equip_pair_zm = ['0', '0', '0', '0', '0']
 
     let current_path = ''
     let current_item_list = []
+
 
 
     const data_load = () => {
@@ -43,7 +61,18 @@
         localStorage.setItem('lock_map', lock_map_str)
     }
 
+    const setting_load = () => {
+        localStorage.getItem('exg_addon_setting') ? settingdata = JSON.parse(localStorage.getItem('exg_addon_setting')) : false
+        setting = new Proxy(settingdata, setting_handler)
+    }
+
+    const setting_save = () => {
+        const setting_str = JSON.stringify(settingdata)
+        localStorage.setItem('exg_addon_setting', setting_str)
+    }
+
     data_load()
+    setting_load()
     //#endregion
 
     //#region hook
@@ -117,6 +146,7 @@
         <div id="menu-tabs" style="background: #2d2d2d; padding: 8px 12px 0; border-bottom: 1px solid #404040;">
             <button class="tab-btn active" data-tab="tab1">人类配装设置</button>
             <button class="tab-btn" data-tab="tab2">其他</button>
+            <button class="tab-btn" data-tab="tab3">筛选</button>
         </div>
 
         <!-- 内容区域 -->
@@ -133,9 +163,47 @@
 
             <!-- 标签2 -->
             <div id="tab2" class="tab-content">
-                <button id="equip-sort" class="menu-item">优化列表   ❌</button>
-                <button id="equip-auto-confirm" class="menu-item">自动装备   ❌</button>
+                <label class="menu-switch">
+                    <input id="equip-sort" type="checkbox" class="menu-switch-input">
+                    <span class="menu-switch-slider"></span>
+                    <span class="menu-switch-text">优化列表</span>
+                </label>
+                <br>
+                <label class="menu-switch">
+                    <input id="equip-auto-confirm" type="checkbox" class="menu-switch-input">
+                    <span class="menu-switch-slider"></span>
+                    <span class="menu-switch-text">自动装备</span>
+                </label>
+
             </div> 
+
+            <div id="tab3" class="tab-content">
+
+                <label class="menu-label">表达式</label>
+                <input id="re-equip" type="text"class="menu-input" placeholder="{名字}<附魔>[属性](位置)">
+
+                <div class="form-group">
+                    <label class="menu-label">品质</label>
+                    <select id="lv-equip" class="menu-select">
+                        <option value="*">*</option>
+                        <option value="蓝色">蓝色</option>
+                        <option value="紫色">紫色</option>
+                        <option value="金色">金色</option>
+                    </select>
+                </div>
+
+                <label class="menu-switch">
+                    <input id="auto-select-equip" type="checkbox" class="menu-switch-input">
+                    <span class="menu-switch-slider"></span>
+                    <span class="menu-switch-text">选择装备</span>
+                </label>
+
+                <button id="filter-equip" class="menu-item" style="background: #4a9cff; display:inline-block; width:45%; margin-right:5%">筛选</button>
+                <button id="filter-reset-equip" class="menu-item" style="display:inline-block; width:45%;">清除筛选</button>
+
+
+            </div>
+
         </div>
     </div>
     `;
@@ -236,6 +304,167 @@
             font-size: 14px;
         }
 
+        .form-group {
+            margin: 12px 0;
+        }
+
+        .menu-label {
+            display: block;
+            color: #9e9e9e;
+            font-size: 0.9em;
+            margin-bottom: 6px;
+        }
+
+        .menu-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #333;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 14px;
+            transition: all 0.25s ease;
+        }
+
+        .menu-input:focus {
+            outline: none;
+            border-color: #4a9cff;
+            box-shadow: 0 0 0 2px rgba(74, 156, 255, 0.2);
+        }
+
+        .menu-select {
+            width: 100%;
+            padding: 8px 32px 8px 12px;
+            background: #333 url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23999999'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e") no-repeat right 10px center;
+            background-size: 12px;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            color: #e0e0e0;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .menu-select:hover {
+            border-color: #666;
+        }
+
+        .menu-select:focus {
+            border-color: #4a9cff;
+            box-shadow: 0 0 0 2px rgba(74, 156, 255, 0.2);
+        }
+
+        /* 滑动条样式 */
+        .menu-range {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .menu-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4a9cff;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .menu-range::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #4a9cff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* 禁用默认聚焦轮廓 */
+        *:focus {
+            outline: none;
+        }
+
+         .menu-switch {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        /* 隐藏原生复选框 */
+        .menu-switch-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        /* 滑动轨道 */
+        .menu-switch-slider {
+            position: relative;
+            width: 48px;
+            height: 24px;
+            background-color: #404040;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        /* 滑动按钮 */
+        .menu-switch-slider::before {
+            content: "";
+            position: absolute;
+            left: 2px;
+            top: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: #666;
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* 激活状态 */
+        .menu-switch-input:checked + .menu-switch-slider {
+            background-color: #4a9cff50;
+        }
+
+        .menu-switch-input:checked + .menu-switch-slider::before {
+            transform: translateX(24px);
+            background-color: #4a9cff;
+        }
+
+        /* 状态文字 */
+        .menu-switch-text {
+            color: #9e9e9e;
+            font-size: 0.9em;
+            transition: color 0.3s ease;
+            width: 50%; 
+            margin-right: 5%;
+        }
+
+        .menu-switch-input:checked ~ .menu-switch-text {
+            color: #4a9cff;
+        }
+
+        /* 悬停效果 */
+        .menu-switch:hover .menu-switch-slider {
+            background-color: #4a4a4a;
+        }
+
+        .menu-switch:hover .menu-switch-input:checked + .menu-switch-slider {
+            background-color: #4a9cff60;
+        }
+
+        /* 禁用状态 */
+        .menu-switch.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     `;
     document.head.appendChild(style);
 
@@ -305,7 +534,6 @@
         menu.style.top = `${newY}px`;
     });
 
-
     //button bind 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -321,28 +549,45 @@
     });
 
 
-
     let bu_save_equip = document.getElementById('save-equip')
     bu_save_equip.addEventListener('click', () => {
         save_equip()
     })
 
     let bu_equip_sort = document.getElementById('equip-sort')
-    let flag_sort = false
-    bu_equip_sort.addEventListener('click', () => {
-        flag_sort = !flag_sort
-        bu_equip_sort.textContent = flag_sort ? '优化列表   ✅' : '优化列表   ❌'
+    bu_equip_sort.checked = setting.flag_sort
+    bu_equip_sort.addEventListener('change', () => {
+        setting.flag_sort = bu_equip_sort.checked
     })
 
     let bu_equip_auto_confirm = document.getElementById('equip-auto-confirm')
-    let flag_auto_confirm = false
-    bu_equip_auto_confirm.addEventListener('click', () => {
-        flag_auto_confirm = !flag_auto_confirm
-        bu_equip_auto_confirm.textContent = flag_auto_confirm ? '自动装备   ✅' : '自动装备   ❌'
+    bu_equip_auto_confirm.checked = setting.flag_auto_confirm
+    bu_equip_auto_confirm.addEventListener('change', () => {
+        setting.flag_auto_confirm = bu_equip_auto_confirm.checked
     })
 
-    //#endregion
+    let input_re_equip = document.getElementById('re-equip')
+    let input_lv_equip = document.getElementById('lv-equip')
 
+
+    let bu_equip_filter = document.getElementById('filter-equip')
+    bu_equip_filter.addEventListener('click', () => {
+        filter_equip({ re: input_re_equip.value, lv: input_lv_equip.value })
+    })
+
+    let bu_equip_reset_filter = document.getElementById('filter-reset-equip')
+    bu_equip_reset_filter.addEventListener('click', () => {
+        reset_filter_act()
+    })
+
+    let input_auto_select_equip = document.getElementById('auto-select-equip')
+    input_auto_select_equip.checked = setting.flag_auto_select
+    input_auto_select_equip.addEventListener('change', () => {
+        setting.flag_auto_select = input_auto_select_equip.checked
+    })
+
+
+    //#endregion
 
     //#region render
 
@@ -402,21 +647,8 @@
         const itemc = current_item_list
         let p = itemc[0].node.parentNode
 
-        for (let i of itemc) 
+        for (let i of itemc)
             p.removeChild(i.node)
-
-        // let imap = itemc.map(n => {
-        //     return {
-        //         grade: ['红色','金色','紫色','蓝色'].indexOf(n.dataset['grade']),
-        //         slot: ['头盔','背心','枪套','背包','护膝'].indexOf(n.dataset['slot']),
-        //         id : n.title,
-        //         group: n.querySelector('.fs-5').textContent
-        //         .replace(/^[^\u4e00-\u9fff]+/g, '') 
-        //         .replace(/[^\u4e00-\u9fff]+$/g, '')
-        //         .slice(0,-2),
-        //         node : n
-        //     }
-        // })
 
         itemc.sort((a, b) => {
             if (a.grade != b.grade)
@@ -434,10 +666,13 @@
 
     }
 
+    let reset_menu = () => { }
     const menu_option = () => {
-        switch (current_path){
+        reset_menu()
+        reset_menu = () => { console.log('no reset') }
+        switch (current_path) {
             case '战斗装备/装备3':
-                 menu.style.display = 'block'
+                menu.style.display = 'block'
             default:
                 break
         }
@@ -461,10 +696,10 @@
                 flush_item_list()
 
                 addon_equip_render()
-                if (flag_sort) 
+                if (setting.flag_sort)
                     sort_equip()
             })
-            evalHook = () => {}
+            evalHook = () => { }
         }
 
     }
@@ -474,7 +709,7 @@
         for (let ind of p) {
             select_equip(ind)
         }
-        if (flag_auto_confirm) {
+        if (setting.flag_auto_confirm) {
             let cbu = document.querySelector('.bg-primary-subtle')
             if (cbu.textContent = '修改装备')
                 cbu.click()
@@ -494,36 +729,85 @@
         }
     }
 
+    class strnmap {
+        constructor() {
+            this.nmap = new Map()
+        }
+
+        /**
+         * @param {String} str 
+         * @returns {Number}
+         */
+        map(str) {
+            if (this.nmap.has(str))
+                return this.nmap.get(str)
+            else {
+                this.nmap.set(str, this.nmap.size)
+                return this.nmap.get(str)
+            }
+        }
+
+        /**
+         * @param {String} str 
+         * @returns {Array<Number>}
+         */
+        search(str) {
+            const res = []
+            for (let i of this.nmap.keys()) {
+                if (i.includes(str))
+                    res.push(this.nmap.get(i))
+            }
+            return res
+        }
+    }
+
+    /**
+     * @type {strnmap}
+     */
+    const prop_map = new strnmap()
+
+    /**
+     * @type {strnmap}
+     */
+    const magic_map = new strnmap()
+
+    const map_grade = (grade) => ['红色', '金色', '紫色', '蓝色', '*'].indexOf(grade)
+    const map_slot = (slot) => ['头盔', '背心', '枪套', '背包', '护膝'].indexOf(slot)
+
+
     const flush_item_list = () => {
         let itemc = Array.from(document.querySelectorAll('.p-1.itemView:not(.border)'))
 
         current_item_list = itemc.map(n => {
             return {
-                grade: ['红色','金色','紫色','蓝色'].indexOf(n.dataset['grade']),
-                slot: ['头盔','背心','枪套','背包','护膝'].indexOf(n.dataset['slot']),
-                id : n.title,
+                grade: map_grade(n.dataset['grade']),
+                slot: map_slot(n.dataset['slot']),
+                id: n.title,
                 group: n.querySelector('.fs-5').textContent
-                    .replace(/^[^\u4e00-\u9fff]+/g, '') 
+                    .replace(/^[^\u4e00-\u9fff]+/g, '')
                     .replace(/[^\u4e00-\u9fff]+$/g, '')
-                    .slice(0,-2),
+                    .slice(0, -2),
                 prop: Array.from(n.querySelectorAll('.itemPropertySpan:not(.bg-black)'))
                     .map(x => {
-                        let [k, v] = x.textContent.split(' ')
-                        return {k, v}
+                        return { k: prop_map.map(x.dataset['key']), v: x.dataset['value'] }
                     }),
                 magic: Array.from(n.querySelectorAll('.itemPropertySpan.bg-black'))
                     .map(x => {
-                        let [k, v] = x.textContent.split(' ')
-                        return {k, v}
+                        return { k: magic_map.map(x.dataset['key']), v: x.dataset['value'] }
                     }),
-                node : n
+                node: n
             }
         })
+
+        console.log(current_item_list)
+        console.log(prop_map)
+        console.log(magic_map)
+        // console.log(group_map)
     }
 
-    
+
     const flush_active_equip = () => {
-        if(current_path && !['战斗装备/装备3','战斗装备/装备4'].includes(current_path))
+        if (current_path && !['战斗装备/装备3', '战斗装备/装备4'].includes(current_path))
             return
         const p = []
         for (let i = 1; i <= 5; i++) {
@@ -545,6 +829,8 @@
                 let c = lock_map.get(id)
                 //remove name
                 c.splice(c.indexOf(pre.id), 1)
+                if (c.length == 0)
+                    lock_map.delete(id)
             }
         }
         if (now) {
@@ -552,7 +838,7 @@
                 if (!lock_map.has(id)) {
                     lock_map.set(id, [])
                 }
-                let c = lock_map.get(id) 
+                let c = lock_map.get(id)
                 c.push(now.id)
             }
         }
@@ -575,12 +861,191 @@
         else {
             alert('need name')
         }
-        
+
         queueMicrotask(() => {
             data_save()
             menu_equip_render()
         })
     }
+
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Array<String>}
+     */
+    const split_filter_group = (str) => {
+        const structures = [];
+        let currentPart = '';
+        let inbracket = false;
+        let bracketType = null;
+        const bracketPairs = { '{': '}', '(': ')', '[': ']', '<': '>' };
+
+        for (let i = 0; i < str.length; i++) {
+            const char = str[i];
+            if (!inbracket && (char === '{' || char === '(' || char === '[' || char === '<')) {
+                inbracket = true;
+                bracketType = char;
+                currentPart += char;
+            } else if (inbracket) {
+                currentPart += char;
+                if (char === bracketPairs[bracketType]) {
+                    inbracket = false;
+                }
+            } else if (char === ',') {
+                structures.push(currentPart.trim());
+                currentPart = '';
+            } else {
+                currentPart += char;
+            }
+        }
+
+        if (currentPart.trim()) structures.push(currentPart.trim());
+        return structures.filter(part => part.length > 0);
+    }
+
+    /**
+     * 
+     * @param {String} part 
+     */
+    const parse_filter_unit = (part) => {
+        const result = { group: [], solt: [], prop: [], magic: [] };
+        const regex = /\{([^}]*)\}|\(([^)]*)\)|\[([^\]]*)\]|<([^>]*)>/g;
+
+        let match;
+        while ((match = regex.exec(part)) !== null) {
+            if (match[1]) {
+                result.group.push(...match[1].split(',').filter(Boolean));
+            } else if (match[2]) {
+                result.solt.push(...match[2].trim().split(',').filter(Boolean).map(x => map_slot(x)));
+            } else if (match[3]) {
+                result.prop.push(match[3].split(',').filter(Boolean).map(x => prop_map.search(x.toUpperCase())).flat());
+            } else if (match[4]) {
+                result.magic.push(...match[4].trim().split(',').filter(Boolean).map(x => magic_map.search(x)).flat());
+            }
+        }
+        // console.log(result)
+        return result;
+    }
+
+    let reset_filter_act = () => { }
+
+    /**
+     * @param {boolean} select 
+     * @param {{re,lv}} rule
+     */
+    const filter_equip = (rule) => {
+        reset_filter_act()
+
+        let [re, lv] = [rule.re, map_grade(rule.lv)]
+        console.log(rule)
+        const filter = split_filter_group(re).map(x => parse_filter_unit(x));
+        console.log(filter)
+
+        let group_outer = []
+        let group_tar = []
+
+        /**
+         * 
+         * @param {Array<number>} a 
+         * @param {Array<number>} b 
+         * @returns Array<number>
+         */
+        let get_union = (a, b) => a.filter((v) => b.includes(v));
+
+        // return
+
+        //lv 
+        for (let e of current_item_list) {
+            if (lv != 4 && e.grade != lv)
+                group_outer.push(e)
+            else
+                group_tar.push(e)
+        }
+
+        //g
+        let g_tar = []
+        for (let e of group_tar) {
+            let flag_outer = false
+            for (let f of filter) {
+                if (f.group.length > 0 && !f.group.some(x => e.group.includes(x)))
+                    flag_outer = true
+            }
+            if (flag_outer)
+                group_outer.push(e)
+            else
+                g_tar.push(e)
+        }
+        group_tar = g_tar
+
+
+        // s
+
+        let s_tar = []
+        for (let e of group_tar) {
+            let flag_outer = false
+            for (let f of filter) {
+                if (f.solt.length > 0 && !f.solt.includes(e.solt))
+                    flag_outer = true
+            }
+            if (flag_outer)
+                group_outer.push(e)
+            else
+                s_tar.push(e)
+        }
+        group_tar = s_tar
+
+
+        //m
+        let m_tar = []
+        for (let e of group_tar) {
+            let flag_outer = false
+            for (let f of filter) {
+                if (f.magic.length > 0 && get_union(f.magic, e.magic.map(x => x.k)).length == 0)
+                    flag_outer = true
+            }
+            if (flag_outer)
+                group_outer.push(e)
+            else
+                m_tar.push(e)
+        }
+        group_tar = m_tar
+
+        //prop
+        let p_tar = []
+        for (let e of group_tar) {
+            let flag_outer = false
+            for (let f of filter) {
+                if (f.prop.length > 0 && !f.prop.every(c => get_union(c, e.prop.map(x => x.k)).length > 0))
+                    flag_outer = true
+            }
+            if (flag_outer)
+                group_outer.push(e)
+            else
+                p_tar.push(e)
+        }
+        group_tar = p_tar
+
+
+        console.log(group_tar)
+        console.log(group_outer)
+
+        //
+
+        if (setting.flag_auto_select)
+            for (let e of group_tar)
+                e.node.click()
+        else {
+            for (let e of group_outer)
+                e.node.style.display = 'none'
+            reset_filter_act = () => {
+                for (let e of group_outer)
+                    e.node.style.display = 'block'
+                reset_filter_act = () => { }
+            }
+        }
+
+    }
+
 
 
     //#endregion
