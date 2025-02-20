@@ -46,6 +46,8 @@
     let current_path = ''
     let current_item_list = []
 
+    let para_lock_item_style_list = ['display']
+    let para_lock_item_style = true
 
 
     const data_load = () => {
@@ -144,15 +146,15 @@
 
         <!-- 标签导航 -->
         <div id="menu-tabs" style="background: #2d2d2d; padding: 8px 12px 0; border-bottom: 1px solid #404040;">
-            <button class="tab-btn active" data-tab="tab1">人类配装设置</button>
-            <button class="tab-btn" data-tab="tab2">其他</button>
+            <button class="tab-btn" data-tab="tab1">人类配装设置</button>
+            <button class="tab-btn active" data-tab="tab2">其他</button>
             <button class="tab-btn" data-tab="tab3">筛选</button>
         </div>
 
         <!-- 内容区域 -->
         <div id="menu-body" style="background: #262626; border: 1px solid #404040; border-top: none; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
             <!-- 标签1 -->
-            <div id="tab1" class="tab-content active">
+            <div id="tab1" class="tab-content">
                 <div id="equip-pair-list" class="tmenu-body" style="overflow-y: auto; max-height: 30vh;">
                 存储配装
                     
@@ -162,7 +164,7 @@
             </div>
 
             <!-- 标签2 -->
-            <div id="tab2" class="tab-content">
+            <div id="tab2" class="tab-content active">
                 <label class="menu-switch">
                     <input id="equip-sort" type="checkbox" class="menu-switch-input">
                     <span class="menu-switch-slider"></span>
@@ -670,9 +672,8 @@
     const menu_option = () => {
         reset_menu()
         reset_menu = () => { console.log('no reset') }
+        menu.style.display = 'block'
         switch (current_path) {
-            case '战斗装备/装备3':
-                menu.style.display = 'block'
             default:
                 break
         }
@@ -691,6 +692,8 @@
         evalHook = (c) => {
             console.log('evalHook run')
             queueMicrotask(() => {
+                // para_lock_item_style = false
+
                 menu_option()
                 flush_active_equip()
                 flush_item_list()
@@ -698,6 +701,8 @@
                 addon_equip_render()
                 if (setting.flag_sort)
                     sort_equip()
+
+                // para_lock_item_style = true
             })
             evalHook = () => { }
         }
@@ -784,7 +789,7 @@
                 slot: map_slot(n.dataset['slot']),
                 id: n.title,
                 group: n.querySelector('.fs-5').textContent
-                    .replace(/^[^\u4e00-\u9fff]+/g, '')
+                    // .replace(/^[^\u4e00-\u9fff]+/g, '')
                     .replace(/[^\u4e00-\u9fff]+$/g, '')
                     .slice(0, -2),
                 prop: Array.from(n.querySelectorAll('.itemPropertySpan:not(.bg-black)'))
@@ -802,7 +807,32 @@
         console.log(current_item_list)
         console.log(prop_map)
         console.log(magic_map)
-        // console.log(group_map)
+        
+        //protect style
+        for (let i of itemc) {
+            let ostyle = i.style
+            let ofstyle = ostyle.setProperty.bind(ostyle)
+
+            ostyle.setProperty = (name, value) => {
+                console.log(`item style set ${name} ${value}`)
+                if (para_lock_item_style_list.includes(name) && para_lock_item_style)
+                    return
+                ofstyle(name, value)
+            }
+
+            for (let p of para_lock_item_style_list){
+                Object.defineProperty(ostyle,p,{
+                    set(value){
+                        console.log(`item style set ${p} ${value}`)
+                        if (para_lock_item_style_list.includes(p) && para_lock_item_style)
+                            return
+                        ofstyle(p,value)
+                    }
+                })
+
+            }
+        }
+
     }
 
 
@@ -1035,18 +1065,20 @@
             for (let e of group_tar)
                 e.node.click()
         else {
+            para_lock_item_style = false
             for (let e of group_outer)
                 e.node.style.display = 'none'
+            para_lock_item_style = true
             reset_filter_act = () => {
+                para_lock_item_style = false
                 for (let e of group_outer)
                     e.node.style.display = 'block'
+                para_lock_item_style = true
                 reset_filter_act = () => { }
             }
         }
 
     }
-
-
 
     //#endregion
 })();
