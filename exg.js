@@ -49,6 +49,10 @@
     let para_lock_item_style_list = ['display']
     let para_lock_item_style = true
 
+    let statics = {
+        cnt_lv : [0,0,0,0]
+    }
+
 
     const data_load = () => {
         localStorage.getItem('equip_pair') ? equip_pair = new Map(JSON.parse(localStorage.getItem('equip_pair'))) : false
@@ -176,6 +180,8 @@
                     <span class="menu-switch-slider"></span>
                     <span class="menu-switch-text">自动装备</span>
                 </label>
+                <br>
+                <div id="equip-statics"></div>
 
             </div> 
 
@@ -197,7 +203,7 @@
                 <label class="menu-switch">
                     <input id="auto-select-equip" type="checkbox" class="menu-switch-input">
                     <span class="menu-switch-slider"></span>
-                    <span class="menu-switch-text">选择装备</span>
+                    <span class="menu-switch-text">自动选择(仅装备分解生效)</span>
                 </label>
 
                 <button id="filter-equip" class="menu-item" style="background: #4a9cff; display:inline-block; width:45%; margin-right:5%">筛选</button>
@@ -253,7 +259,10 @@
 
         .menu-item {
             display: flex;
+            justify-content: space-between;
             align-items: center;
+            position: relative;
+            padding: 10px !important;
             gap: 8px;
             width: 100%;
             padding: 10px;
@@ -262,8 +271,8 @@
             background: #333;
             color: #e0e0e0;
             cursor: pointer;
-            transition: all 0.2s ease;
             border-radius: 4px;
+            transition: all 0.2s ease;
         }
 
         .menu-item:hover {
@@ -274,6 +283,56 @@
             background: #3a3a3a;
             border-color: #4a9cff;
             opacity: 0.8;
+        }
+
+        /* 删除按钮样式（保持原按钮外观） */
+        .menu-item-delete {
+            position: absolute;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: #999;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            opacity: 0;
+            outline: none;
+        }
+
+        /* 保持原有交互效果 */
+        .menu-item:hover .menu-item-delete {
+            opacity: 1;
+        }
+
+        .menu-item-delete:hover {
+            background: rgba(255, 80, 80, 0.15);
+            color: #ff5050;
+            transform: scale(1.1);
+        }
+
+        .menu-item-delete:active {
+            transform: scale(0.95);
+        }
+
+         .menu-item-delete::before {
+                content: "";
+                position: absolute;
+                inset: -5px; /* 扩大点击区域 */
+                z-index: 1;
+        }
+
+        /* 文字区域限制 */
+        .menu-item-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: calc(100% - 24px);
         }
 
         #close-menu:hover {
@@ -467,6 +526,11 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+
+        @keyframes removeItem {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
     `;
     document.head.appendChild(style);
 
@@ -593,39 +657,71 @@
 
     //#region render
 
-    let first_render = true
-    let rendered_equip = new Set()
-
+    
     const new_equipbu = (n) => {
-        let bu = document.createElement('button')
+        let bu = document.createElement('div')
         bu.classList.add('menu-item')
-        bu.textContent = n
+        bu.innerHTML = `
+            <span class="menu-item-text">${n}</span>
+            <button class="menu-item-delete">×</button>`
+
         bu.addEventListener('click', () => {
             apply_equip_pair(n)
         })
+
+        bu.querySelector('.menu-item-delete').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if(!confirm('确定删除')) return;
+
+            bu.style.animation = 'removeItem 0.3s ease forwards';
+            setTimeout(() => bu.remove(), 300);
+            delete_equip(n)
+        })
         return bu
     }
+    
+    
+    let first_render = true
+    let rendered_equip = new Map()
+    
+    let equip_list = document.getElementById('equip-pair-list')
+    const menu_equip_render = (isdelete = false) => {
+        let c = equip_list
 
-    const menu_equip_render = () => {
-        let c = document.getElementById('equip-pair-list')
+        let ep = Array.from(equip_pair.keys())
+        let re = Array.from(rendered_equip.keys())
 
-        if (first_render) {
-            first_render = false
-            for (let [n, p] of equip_pair) {
+        let diff = ep.filter(x => !rendered_equip.has(x)).concat(re.filter(x => !equip_pair.has(x)))
+        
+        for (let n of diff) {
+            if (isdelete) {
+                c.removeChild(rendered_equip.get(n))
+                rendered_equip.delete(n)
+            }
+            else{
                 let bu = new_equipbu(n)
                 c.appendChild(bu)
-                rendered_equip.add(n)
+                rendered_equip.set(n, bu)
             }
         }
-        else {
-            for (let [n, p] of equip_pair) {
-                if (!rendered_equip.has(n)) {
-                    let bu = new_equipbu(n)
-                    c.appendChild(bu)
-                    rendered_equip.add(n)
-                }
-            }
-        }
+
+        // if (first_render) {
+        //     first_render = false
+        //     for (let [n, p] of equip_pair) {
+        //         let bu = new_equipbu(n)
+        //         c.appendChild(bu)
+        //         rendered_equip.add(n)
+        //     }
+        // }
+        // else {
+        //     for (let [n, p] of equip_pair) {
+        //         if (!rendered_equip.has(n)) {
+        //             let bu = new_equipbu(n)
+        //             c.appendChild(bu)
+        //             rendered_equip.add(n)
+        //         }
+        //     }
+        // }
     }
 
     const addon_equip_render = () => {
@@ -680,6 +776,17 @@
 
     }
 
+
+    const render_statics = () => {
+        let c = document.getElementById('equip-statics')
+        c.innerHTML = `库存装备 <br>
+        <span style="color: rgb(200, 36, 36)">红色 ${statics.cnt_lv[0]} 件</span> <br>
+        <span style="color: rgb(189, 132, 22)">金色 ${statics.cnt_lv[1]} 件</span> <br>
+        <span style="color: rgb(140, 66, 191)">紫色 ${statics.cnt_lv[2]} 件</span> <br>
+        <span style="color: rgb(37, 97, 191)">蓝色 ${statics.cnt_lv[3]} 件</span>
+        `
+    }
+
     menu_equip_render()
 
     //#endregion
@@ -703,6 +810,7 @@
                     sort_equip()
 
                 // para_lock_item_style = true
+                render_statics()
             })
             evalHook = () => { }
         }
@@ -724,7 +832,7 @@
 
     const select_equip = (id) => {
         let e = document.querySelector(`.p-1.itemView[title="${id}"]:not(.border)`)
-        console.log(e)
+        // console.log(e)
         if (e && e.style.opacity != '0.5') {
             e.click()
             console.log("select")
@@ -758,6 +866,8 @@
          */
         search(str) {
             const res = []
+            if(str == '*')
+                return Array.from(this.nmap.values())
             for (let i of this.nmap.keys()) {
                 if (i.includes(str))
                     res.push(this.nmap.get(i))
@@ -782,9 +892,10 @@
 
     const flush_item_list = () => {
         let itemc = Array.from(document.querySelectorAll('.p-1.itemView:not(.border)'))
+        statics.cnt_lv = [0, 0, 0, 0]
 
         current_item_list = itemc.map(n => {
-            return {
+            let x = {
                 grade: map_grade(n.dataset['grade']),
                 slot: map_slot(n.dataset['slot']),
                 id: n.title,
@@ -802,6 +913,9 @@
                     }),
                 node: n
             }
+            //
+            statics.cnt_lv[x.grade]++
+            return x
         })
 
         console.log(current_item_list)
@@ -898,6 +1012,16 @@
         })
     }
 
+    const delete_equip = (name) => {
+        flush_lock_map({ id: name, item: equip_pair.get(name) }, null)
+        equip_pair.delete(name)
+
+        queueMicrotask(() => {
+            data_save()
+            menu_equip_render(true)
+        })
+    }
+
     /**
      * 
      * @param {String} str 
@@ -953,7 +1077,7 @@
                 result.magic.push(...match[4].trim().split(',').filter(Boolean).map(x => magic_map.search(x)).flat());
             }
         }
-        // console.log(result)
+        
         return result;
     }
 
@@ -1061,7 +1185,7 @@
 
         //
 
-        if (setting.flag_auto_select)
+        if (setting.flag_auto_select && current_path == '战斗装备/装备分解')
             for (let e of group_tar)
                 e.node.click()
         else {
