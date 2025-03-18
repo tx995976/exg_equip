@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CounterStrike2GSI" Version="1.0.3.8403" />
+	<PackageReference Include="dotnetCampus.Telescope.SourceGeneratorAnalyzers" Version="0.10.7-alpha21">
+		<PrivateAssets>all</PrivateAssets>
+		<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+	</PackageReference>
+	<PackageReference Include="WatsonWebsocket" Version="4.1.3" />
+	<PackageReference Include="R3" Version="1.1.11" />
+	<PackageReference Include="Curryfy" Version="3.1.0" />
+  </ItemGroup>
+
+</Project>

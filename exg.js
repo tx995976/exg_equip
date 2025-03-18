@@ -153,6 +153,7 @@
             <button class="tab-btn" data-tab="tab1">人类配装设置</button>
             <button class="tab-btn active" data-tab="tab2">其他</button>
             <button class="tab-btn" data-tab="tab3">筛选</button>
+            <button class="tab-btn" data-tab="tab4">高级</button>
         </div>
 
         <!-- 内容区域 -->
@@ -208,9 +209,18 @@
 
                 <button id="filter-equip" class="menu-item" style="background: #4a9cff; display:inline-block; width:45%; margin-right:5%">筛选</button>
                 <button id="filter-reset-equip" class="menu-item" style="display:inline-block; width:45%;">清除筛选</button>
-
-
             </div>
+
+			<div id="tab4" class="tab-content">
+				<span id="gsi-state">状态: 未启动</span>
+                <input id="gsi-port" type="text"class="menu-input" placeholder="port">
+				<button id="gsi-conn" class="menu-item" style="background: #4a9cff; display:inline-block; width:45%; margin-right:5%">连接</button> 
+				<button id="gsi-disconn" class="menu-item" style="display:inline-block; width:45%; disabled">断开连接</button>
+
+				<label class="menu-label">开局buff</label>
+				<input id="gsi-buffequip" type="text"class="menu-input" placeholder="equip id">
+
+			</div>
 
         </div>
     </div>
@@ -637,11 +647,10 @@
 
 
     let bu_equip_filter = document.getElementById('filter-equip')
+	let bu_equip_reset_filter = document.getElementById('filter-reset-equip')
     bu_equip_filter.addEventListener('click', () => {
         filter_equip({ re: input_re_equip.value, lv: input_lv_equip.value })
     })
-
-    let bu_equip_reset_filter = document.getElementById('filter-reset-equip')
     bu_equip_reset_filter.addEventListener('click', () => {
         reset_filter_act()
     })
@@ -651,6 +660,31 @@
     input_auto_select_equip.addEventListener('change', () => {
         setting.flag_auto_select = input_auto_select_equip.checked
     })
+
+	let input_gsi_port = document.getElementById('gsi-port')
+	let input_gsi_buffequip = document.getElementById('gsi-buffequip')
+	let button_gsi_connect = document.getElementById('gsi-conn')
+	let button_gsi_disconnect = document.getElementById('gsi-disconn')
+	let label_gsi_state = document.getElementById('gsi-state')
+
+	input_gsi_port.addEventListener('blur', () => {
+		setting.gsi_port = input_gsi_port.value
+	})
+
+	input_gsi_buffequip.addEventListener('blur', () => {
+		setting.gsi_buffequip = input_gsi_buffequip.value
+	})
+
+	button_gsi_connect.addEventListener('click', () => {
+		gsi_connect()
+	})
+
+	button_gsi_disconnect.addEventListener('click', () => {
+		gsi_disconnect()
+	})
+
+	input_gsi_port.value = setting.gsi_port
+	input_gsi_buffequip.value = setting.gsi_buffequip
 
 
     //#endregion
@@ -811,13 +845,18 @@
 
                 // para_lock_item_style = true
                 render_statics()
+
+				
             })
             evalHook = () => { }
         }
 
     }
 
-    const apply_equip_pair = (id) => {
+    const apply_equip_pair = (id,manual = true) => {
+		if(current_path != '战斗装备/装备3')
+			return
+
         let p = equip_pair.get(id)
         for (let ind of p) {
             select_equip(ind)
@@ -828,6 +867,8 @@
                 cbu.click()
         }
         console.log(`apply ${id}`)
+		if(manual)
+			setting.active_equip = id
     }
 
     const select_equip = (id) => {
@@ -1185,9 +1226,14 @@
 
         //
 
-        if (setting.flag_auto_select && current_path == '战斗装备/装备分解')
+        if (setting.flag_auto_select && current_path == '战斗装备/装备分解'){
             for (let e of group_tar)
                 e.node.click()
+            reset_filter_act = () => { 
+                for (let e of group_tar)
+                    e.node.click()
+            }
+        }
         else {
             para_lock_item_style = false
             for (let e of group_outer)
@@ -1203,6 +1249,49 @@
         }
 
     }
+
+	//#region gsi
+	let ws_gsi = null
+	let topic_rp = ''
+
+	const gsi_connect = () => {
+		ws_gsi = new OriginalWebSocket(`ws://localhost:${setting.gsi_port}`)
+		ws_gsi.onopen = () => {
+			button_gsi_connect.disabled = true
+			button_gsi_disconnect.disabled = false
+			label_gsi_state.innerText = '状态:已连接'
+		}
+		ws_gsi.onmessage = (e) => {
+			let [topic,data] = e.data.split(':')
+
+			switch (topic) {
+				case 'RP':
+					if (data == 'Freezetime' && topic_rp == 'Over'){
+						apply_equip_pair(setting.active_equip,false)
+						topic_rp = data
+					}
+					if (data == 'Over'){
+						apply_equip_pair(setting.gsi_buffequip,false)
+						topic_rp = data
+					}
+			}
+		}
+
+		ws_gsi.onclose = () => {
+			button_gsi_connect.disabled = false
+			button_gsi_disconnect.disabled = true
+			label_gsi_state.innerText = '状态:未连接'
+		}
+	}	
+
+
+	const gsi_disconnect = () => {
+		ws_gsi.close()
+		button_gsi_connect.disabled = false
+		button_gsi_disconnect.disabled = true
+		label_gsi_state.innerText = '状态:未连接'
+	}
+
 
     //#endregion
 })();
