@@ -1,4 +1,3 @@
-
 var gls = new GameStateListener(10086);
 var ws = new WatsonWsServer(port:10088);
 ws.Logger = Console.WriteLine;
@@ -10,30 +9,35 @@ IDisposable? rl = null;
 roundstate.Subscribe(x => Console.WriteLine($"send ws data {x}"));
 
 ws.ClientConnected += (o,e) => {
-	recver?.disconnect();
-	rl?.Dispose();
-
 	recver = new(e.Client.Guid,ws);
 	rl = roundstate.Subscribe(x => recver.send(x));
 
 	Console.WriteLine($"client {e.Client.Ip} connected");
 };
 
+ws.ClientDisconnected += (o,e) => {
+	Console.WriteLine($"client {e.Client.Ip} disconnected");
+	recver?.disconnect();
+	rl?.Dispose();
+};
+
 gls.RoundPhaseUpdated += (e) => {
 	Console.WriteLine($"game state from {e.Previous} to {e.New}");
 	if (e.New.ToString() == "Over")
 		roundstate.OnNext($"RP:{e.New}");
-	if (e.New.ToString() == "Freezetime")
+	if (e.New.ToString() == "Live")
 		roundstate.OnNext($"RP:{e.New}");
 };
 
-var wst = ws.StartAsync();
 if(!gls.Start()){
 	Console.WriteLine("failed to start");
 }
+ ws.Start();
 
-Console.WriteLine("started press enter to exit");
-var c = Console.ReadLine();
+Task.Delay(-1).Wait();
+// Console.WriteLine("started press enter to exit");
+// var c = Console.ReadLine();
+
 
 
 class WsConn(Guid id,WatsonWsServer server) {

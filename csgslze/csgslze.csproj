@@ -5,7 +5,12 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+	<PublishSingleFile>true</PublishSingleFile>
+	<PublishTrimmed>true</PublishTrimmed>
+	<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+	<TrimMode>Link</TrimMode>
   </PropertyGroup>
+
 
   <ItemGroup>
     <PackageReference Include="CounterStrike2GSI" Version="1.0.3.8403" />

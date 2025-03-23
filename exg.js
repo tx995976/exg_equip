@@ -92,7 +92,11 @@
         // 监听 WebSocket 消息
         ws.addEventListener('message', function (event) {
             queueMicrotask(() => {
-                let d = JSON.parse(JSON.parse(event.data).Content);
+				let h = JSON.parse(event.data)
+				if (h.Title != 'DisplayMenu')
+					return
+
+                let d = JSON.parse(h.Content);
                 if (d.Path && active_path.includes(d.Path.join('/'))) {
                     console.log(d)
                     step_msg(d.Path.join('/'), d.Content)
@@ -142,7 +146,7 @@
     // 1. 深色模式菜单结构
     // ======================
     const menuHTML = `
-    <div id="float-tab-menu" style="position: fixed; top: 100px; left: 20px; z-index: 9999; cursor: move; min-width: 250px; color: #e0e0e0; display : none">
+    <div id="float-tab-menu" style="position: fixed; top: 100px; left: 20px; z-index: 9999; cursor: move; min-width: 250px; max-width: 40vh; color: #e0e0e0; display : none">
         <!-- 标题栏 -->
         <div id="menu-header" style="background: #1a1a1a; padding: 12px; border-radius: 8px 8px 0 0;">
             装备小助手
@@ -215,7 +219,7 @@
 				<span id="gsi-state">状态: 未启动</span>
                 <input id="gsi-port" type="text"class="menu-input" placeholder="port">
 				<button id="gsi-conn" class="menu-item" style="background: #4a9cff; display:inline-block; width:45%; margin-right:5%">连接</button> 
-				<button id="gsi-disconn" class="menu-item" style="display:inline-block; width:45%; disabled">断开连接</button>
+				<button id="gsi-disconn" class="menu-item" style="display:inline-block; width:45%;">断开连接</button>
 
 				<label class="menu-label">开局buff</label>
 				<input id="gsi-buffequip" type="text"class="menu-input" placeholder="equip id">
@@ -845,8 +849,9 @@
 
                 // para_lock_item_style = true
                 render_statics()
+				skip_dialog()
 
-				
+
             })
             evalHook = () => { }
         }
@@ -987,7 +992,6 @@
 
             }
         }
-
     }
 
 
@@ -1251,7 +1255,11 @@
     }
 
 	//#region gsi
+	/**
+	 * @type {WebSocket}
+	 */
 	let ws_gsi = null
+
 	let topic_rp = ''
 
 	const gsi_connect = () => {
@@ -1266,7 +1274,7 @@
 
 			switch (topic) {
 				case 'RP':
-					if (data == 'Freezetime' && topic_rp == 'Over'){
+					if (data == 'Live' && topic_rp == 'Over'){
 						apply_equip_pair(setting.active_equip,false)
 						topic_rp = data
 					}
@@ -1286,12 +1294,27 @@
 
 
 	const gsi_disconnect = () => {
-		ws_gsi.close()
+		if (ws_gsi == null) 
+			return
+
+		ws_gsi.close(0,'bye')
+		ws_gsi = null
 		button_gsi_connect.disabled = false
 		button_gsi_disconnect.disabled = true
 		label_gsi_state.innerText = '状态:未连接'
 	}
 
+	const skip_dialog = () => {
+		if (ws_gsi != null && current_path != '战斗装备/装备3')
+			return
+
+		let diab = document.querySelector('.modal-dialog .modal-header > button')
+		if (diab){
+			setTimeout(() => {
+				diab.click()
+			}, 500)
+		}
+	}
 
     //#endregion
 })();
